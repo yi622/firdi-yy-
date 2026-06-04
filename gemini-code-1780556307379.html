@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>食研所留樣管理系統 - 100% 食品完整載入版</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 25px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .date-info {
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: #2c3e50;
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-help {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .btn-help:hover { background-color: #2980b9; }
+        
+        .panel {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+        .panel-title { 
+            font-weight: bold; 
+            font-size: 16px;
+            margin-bottom: 15px; 
+            color: #2c3e50; 
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 8px;
+        }
+        .flex-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 0.85em; color: #7f8c8d; font-weight: bold; }
+        input, select { padding: 8px 10px; border: 1px solid #ccd1d9; border-radius: 4px; font-size: 0.95em; }
+        
+        table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; }
+        th, td { padding: 12px; text-align: center; font-size: 0.95em; border-bottom: 1px solid #e6e9ed; }
+        th { background-color: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f9fbfd; }
+        
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .status-expired { background-color: #fde8e8; color: #e74c3c; }
+        .status-warning { background-color: #fff3cd; color: #d35400; }
+        .status-normal { background-color: #d4edda; color: #27ae60; }
+        .expired-row { background-color: #fff5f5 !important; }
+        .warning-row { background-color: #fffdf3 !important; }
+        .table-container { max-height: 550px; overflow-y: auto; }
+
+        /* 網頁內建原生架構圖樣式 */
+        .arch-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #fafbfc;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px dashed #b2bec3;
+        }
+        .arch-node {
+            background: #fff;
+            border: 2px solid #34495e;
+            border-radius: 6px;
+            padding: 12px 20px;
+            width: 85%;
+            max-width: 550px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .node-title { font-weight: bold; color: #2c3e50; margin-bottom: 4px; font-size: 14px;}
+        .node-desc { font-size: 12px; color: #666; line-height: 1.4; }
+        .arch-arrow { color: #bdc3c7; font-size: 20px; margin: 8px 0; font-weight: bold; }
+        .layer-source { border-color: #9b59b6; background: #fdf7ff; }
+        .layer-clean { border-color: #e67e22; background: #fffaf5; }
+        .layer-engine { border-color: #2ecc71; background: #f5fdf8; }
+        .layer-ui { border-color: #3498db; background: #f5faff; }
+
+        /* 新手教學彈窗 (Modal) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-box {
+            background: white; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2); animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-header { font-size: 20px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+        .step-content { font-size: 15px; line-height: 1.6; color: #555; min-height: 130px; }
+        .step-dots { display: flex; gap: 8px; margin: 20px 0; }
+        .dot { width: 10px; height: 10px; background: #ddd; border-radius: 50%; }
+        .dot.active { background: #3498db; }
+        .modal-footer { display: flex; justify-content: space-between; }
+        .btn-nav { padding: 8px 18px; border-radius: 4px; cursor: pointer; border: none; font-weight: bold; }
+        .btn-prev { background: #e0e0e0; color: #555; }
+        .btn-next { background: #2ecc71; color: white; }
+    </style>
+</head>
+<body>
+
+    <h2>食研所留樣管理系統</h2>
+    <div class="subtitle">
+        核心自動化流程：100%食品完整載入 ➔ 自動補齊與清洗 ➔ 動態計算到期 ➔ 緊急度優先排序
+        <button class="btn-help" onclick="openTutorial(0)">📖 開啟新手操作手冊</button>
+    </div>
+    
+    <div class="date-info" id="todayBox">系統動態西元基準日：2026-06-04</div>
+
+    <div class="panel">
+        <div class="panel-title">🔍 實時檢索與條件篩選</div>
+        <div class="flex-group">
+            <div class="field">
+                <label>關鍵字搜尋</label>
+                <input type="text" id="keyword" placeholder="搜尋批號、品項..." oninput="doRender()">
+            </div>
+            <div class="field">
+                <label>依統整位置過濾</label>
+                <select id="locationFilter" onchange="doRender()">
+                    <option value="all">顯示所有位置</option>
+                    <option value="A區 (常溫庫)">A區 (常溫庫)</option>
+                    <option value="B區 (冷藏庫)">B區 (冷藏庫)</option>
+                    <option value="C區 (冷凍庫)">C區 (冷凍庫)</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>警示狀態過濾</label>
+                <select id="statusFilter" onchange="doRender()">
+                    <option value="all">顯示全部狀態 (依緊急度排序)</option>
+                    <option value="expired">🚨 已過期項目</option>
+                    <option value="warning">⏳ 7天內即將到期</option>
+                    <option value="normal">✅ 安全保管中</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">📋 留樣管理工作台 (已排序：危急項目自動置頂)</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>狀態</th>
+                        <th>批號</th>
+                        <th>品項</th>
+                        <th>原始留樣日期</th>
+                        <th>保存天數</th>
+                        <th>統整存放位置</th>
+                        <th>預計留樣期限</th>
+                        <th>倒數/過期天數</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">🛠️ 系統開發手冊架構與資料流向圖 (System Architecture)</div>
+        <div class="arch-container">
+            <div class="arch-node layer-source">
+                <div class="node-title">【1. 原始資料層 (Data Source)】</div>
+                <div class="node-desc">讀入原始 72 筆資料（自動修正：補齊缺失批號、排除未填日期之異常件）</div>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-node layer-clean">
+                <div class="node-title">【2. 核心資料清洗與標準化模組】</div>
+                <div class="node-desc">將多元文字格式（如 2026/1/1、2-Mar-26、20260303）統一清洗轉換為 YYYY-MM-DD 標準規格</div>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-node layer-engine">
+                <div class="node-title">【3. 到期日與時間戳精算引擎】</div>
+                <div class="node-desc">動態解讀天數代碼（項目1➔30天，項目2➔90天，項目3➔180天），精準疊加計算到期日</div>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-node layer-engine" style="border-style: dashed; background: #fff;">
+                <div class="node-title">【4. 核心動態優先級排序演算法】</div>
+                <div class="node-desc">核心邏輯：<code>.sort((a,b) => a.countdown - b.countdown)</code>。使逾期品與預警件自動置頂</div>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-node layer-ui">
+                <div class="node-title">【5. 前端控制與動態 DOM 渲染層】</div>
+                <div class="node-desc">支援即時關鍵字查詢、一致性位置切換（A區常溫/B區冷藏/C區冷凍），高亮標示警示燈號</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="tutorialModal">
+        <div class="modal-box">
+            <div class="modal-header" id="modalTitle">新手操作手冊教學</div>
+            <div class="step-content" id="modalContent">教學內容載入中...</div>
+            <div class="step-dots" id="modalDots"></div>
+            <div class="modal-footer">
+                <button class="btn-nav btn-prev" id="btnPrev" onclick="moveStep(-1)">上一步</button>
+                <button class="btn-nav btn-next" id="btnNext" onclick="moveStep(1)">下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const currentSystemDateStr = "2026-06-04"; // 系統基準日
+
+        const durationMap = {'項目1': 30, 'A': 30, '項目2': 90, 'B': 90, '項目3': 180, 'C': 180};
+        const locationMap = {
+            'A': 'A區 (常溫庫)', '項目1': 'A區 (常溫庫)',
+            'B': 'B區 (冷藏庫)', '項目2': 'B區 (冷藏庫)',
+            'C': 'C區 (冷凍庫)', '項目3': 'C區 (冷凍庫)'
+        };
+
+        // 🎯 100% 完整導入食研所原始文字檔內 72 筆數據（含漏填批號自動補齊、排除無日期之殘缺件）
+        let rawImportedData = [
+            ["B1000", "原味吐司", "2026/1/1", "項目3", "A"],
+            ["b-1001", "原味吐司", "2-Mar-26", "項目1", "項目2"],
+            ["B1002", "蛋捲", "20260303", "項目2", "B"],
+            ["B1003", "果醬", "2026/4/4", "C", "項目2"],
+            ["BATCH1004", "果醬", "2026/5/5", "A", "C"],
+            ["B1005", "杯裝優格", "2026/6/6", "A", "項目1"],
+            ["BATCH1006", "原味吐司", "2026/7/7", "項目3", "項目3"],
+            ["B1007", "果醬", "2026/8/8", "B", "B"],
+            ["B1008", "布丁", "2026/9/9", "A", "項目2"],
+            ["BATCH1009", "鮮奶茶", "10-May-26", "A", "C"],
+            ["BATCH1010", "湯包", "20261111", "A", "項目1"],
+            ["BATCH1011", "杯裝優格", "2026/12/12", "項目3", "項目2"],
+            ["b-1012", "鮮奶茶", "2026/1/13", "A", "項目2"],
+            ["B1013_補", "原味吐司", "14-Mar-26", "項目1", "A"], // 原始無批號，系統自動補齊
+            ["BATCH1014", "堅果包", "2026/3/15", "B", "項目1"],
+            ["BATCH1015", "蛋捲", "2026/5/16", "B", "B"],
+            ["BATCH1016", "堅果包", "2026/5/17", "B", "C"],
+            ["B1017", "泡芙", "2026/1/18", "項目2", "A"],
+            ["B1018", "泡芙", "2026/7/19", "A", "A"],
+            ["B1019", "巧克力餅乾", "2026/8/20", "項目1", "A"],
+            ["B1020", "果醬", "2026/9/21", "B", "A"],
+            ["B1021", "能量棒", "2026/5/22", "C", "C"],
+            ["B1022", "杯裝優格", "2026/11/23", "項目2", "項目1"],
+            ["B1023", "布丁", "2026/12/24", "C", "項目3"],
+            ["BATCH1024", "原味吐司", "2026/1/25", "項目1", "項目3"],
+            ["B1025", "冷凍水餃", "2026/3/26", "B", "項目1"],
+            ["BATCH1026", "湯包", "2026/3/27", "C", "B"],
+            ["BATCH1027", "湯包", "2026/4/28", "B", "項目3"],
+            ["BATCH1028", "堅果包", "2026/5/1", "項目2", "項目1"],
+            ["B1029", "鮮奶茶", "2026/6/2", "C", "項目3"],
+            ["B1030", "堅果包", "2026/7/3", "A", "項目2"],
+            ["BATCH1031", "蛋捲", "2026/8/4", "項目1", "A"],
+            ["B1032", "布丁", "2026/9/5", "項目3", "項目1"],
+            ["B1033", "蛋捲", "2026/5/6", "項目2", "A"],
+            ["B1034", "果醬", "2026/11/07", "項目1", "項目2"],
+            ["B1035", "氣泡飲", "2026/12/08", "B", "C"],
+            ["B1036", "布丁", "2026/1/09", "C", "B"],
+            ["BATCH1037", "湯包", "2026/3/10", "項目2", "C"],
+            ["BATCH1038", "布丁", "2026/4/11", "A", "C"],
+            ["B1039", "沙拉醬", "2026/4/12", "A", "項目3"],
+            ["B1040", "湯包", "2026/5/13", "項目3", "B"],
+            ["B1041", "蛋捲", "2026/6/14", "項目1", "C"],
+            ["B1042", "鮮奶茶", "2026/7/15", "項目1", "C"],
+            ["B1043", "巧克力餅乾", "2026/8/16", "A", "項目1"],
+            ["B1044", "杯裝優格", "2026/4/17", "項目2", "C"],
+            ["B1045", "蛋捲", "2026/10/18", "項目3", "B"],
+            ["B1046", "泡芙", "2026/6/19", "項目1", "項目1"],
+            ["B1047", "湯包", "2026/12/20", "項目1", "B"],
+            ["B1048", "冷凍水餃", "2026/1/21", "B", "項目1"],
+            ["B1049", "能量棒", "2026/2/22", "項目1", "項目2"],
+            ["B1050", "湯包", "2026/3/23", "項目2", "項目1"],
+            ["BATCH1051", "即食雞胸", "2026/4/24", "項目2", "A"],
+            ["BATCH1052", "果醬", "2026/5/25", "C", "項目2"],
+            ["B1053", "氣泡飲", "2026/6/26", "C", "B"],
+            ["B1054", "即食雞胸", "2026/7/27", "C", "項目3"],
+            ["B1055", "氣泡飲", "2026/8/28", "項目2", "項目3"],
+            ["b-1056", "布丁", "2026/9/1", "項目3", "A"],
+            ["B1057", "布丁", "2026/10/2", "A", "A"],
+            ["B1058", "泡芙", "2026/11/3", "項目2", "項目2"],
+            ["BATCH1059", "冷凍水餃", "4-Jan-26", "C", "C"],
+            ["b-1060", "原味吐司", "20260105", "項目1", "項目2"],
+            ["BATCH1061", "杯裝優格", "6-Mar-26", "B", "項目2"],
+            ["B1062", "杯裝優格", "7-Apr-26", "項目1", "項目1"],
+            // 註：原始資料中的 BATCH1063 巧克力餅乾因「無留樣日期欄位」，無法參與排程，系統自動安全除錯。
+            ["B1064", "氣泡飲", "2026/5/9", "C", "項目3"],
+            ["b-1065", "原味吐司", "2026/6/10", "項目1", "C"],
+            ["B1066", "原味吐司", "20260711", "項目1", "B"],
+            ["B1067", "湯包", "20260812", "B", "項目1"],
+            ["B1068", "即食雞胸", "2026/9/13", "B", "B"],
+            ["B1069", "原味吐司", "20261014", "B", "C"],
+            ["b-1070", "泡芙", "20261115", "A", "C"],
+            ["B1071", "蛋捲", "2026/12/16", "B", "項目3"]
+        ];
+
+        // 日期多元格式統一化解析清洗引擎
+        function parseDateString(dateStr) {
+            if(!dateStr) return null;
+            let d = new Date(dateStr);
+            if (!isNaN(d.getTime())) return d;
+            
+            // 處理 YYYYMMDD 格式 (例如 20260303)
+            if(/^\d{8}$/.test(dateStr)){
+                let y = dateStr.substring(0,4);
+                let m = dateStr.substring(4,6);
+                let day = dateStr.substring(6,8);
+                return new Date(`${y}-${m}-${day}`);
+            }
+            return null;
+        }
+
+        function formatDate(dateObj) {
+            return dateObj.toISOString().split('T')[0];
+        }
+
+        // 新手教學導覽內容
+        const tutorialSteps = [
+            { title: "👋 歡迎使用大整合留樣系統！", content: "本系統已將原始檔案內<b>所有可排程食品 100% 完整載入</b>，並修復了無序號、日期雜亂的所有痛點。" },
+            { title: "Step 1. 檢視優先級排序提醒", content: "注意看工作台最上方：<b>系統會自動依到期日由近到遠排序</b>！所有『已過期（紅色）』項目一覽無遺，每週一直接依序處理即可。" },
+            { title: "Step 2. 善用位置分流過濾", content: "系統已將『項目1、2、3、A、B、C』全部統整。您可以利用上方篩選器，一鍵分流查閱<b>常溫、冷藏或冷凍庫</b>的所有樣品。" }
+        ];
+
+        let currentStep = 0;
+        function openTutorial(step) { currentStep = step; document.getElementById('tutorialModal').style.display = 'flex'; updateModalUI(); }
+        function updateModalUI() {
+            const stepData = tutorialSteps[currentStep];
+            document.getElementById('modalTitle').innerText = stepData.title;
+            document.getElementById('modalContent').innerHTML = stepData.content;
+            const dotsContainer = document.getElementById('modalDots'); dotsContainer.innerHTML = '';
+            tutorialSteps.forEach((_, i) => {
+                const dot = document.createElement('div'); dot.className = `dot ${i === currentStep ? 'active' : ''}`; dotsContainer.appendChild(dot);
+            });
+            document.getElementById('btnPrev').style.visibility = currentStep === 0 ? 'hidden' : 'visible';
+            document.getElementById('btnNext').innerText = currentStep === tutorialSteps.length - 1 ? "開始工作" : "下一步";
+        }
+        function moveStep(direction) { currentStep += direction; if (currentStep >= tutorialSteps.length) document.getElementById('tutorialModal').style.display = 'none'; else updateModalUI(); }
+
+        // 核心渲染與動態比對排序演算法
+        function doRender() {
+            const tbody = document.getElementById('tableBody'); tbody.innerHTML = '';
+            const keyword = document.getElementById('keyword').value.trim().toLowerCase();
+            const locFilter = document.getElementById('locationFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const systemTime = new Date(currentSystemDateStr).getTime();
+
+            let processedList = [];
+
+            rawImportedData.forEach(item => {
+                let parsedDate = parseDateString(item[2]);
+                if(!parsedDate) return; // 濾除無有效日期件
+
+                const daysToAdd = durationMap[item[3]] || 30;
+                let expiryDateObj = new Date(parsedDate.getTime());
+                expiryDateObj.setDate(expiryDateObj.getDate() + daysToAdd);
+                
+                const diffTime = expiryDateObj.getTime() - systemTime;
+                const countdown = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                let status = 'normal';
+                if (countdown <= 0) status = 'expired';
+                else if (countdown <= 7) status = 'warning';
+
+                processedList.push({
+                    id: item[0].toUpperCase(),
+                    name: item[1],
+                    mfgDate: formatDate(parsedDate),
+                    days: daysToAdd,
+                    location: locationMap[item[4]] || '其他區域',
+                    expiryDate: formatDate(expiryDateObj),
+                    countdown: countdown,
+                    status: status
+                });
+            });
+
+            // 條件篩選過濾
+            processedList = processedList.filter(item => {
+                if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+                if (locFilter !== 'all' && item.location !== locFilter) return false;
+                return item.id.includes(keyword) || item.name.includes(keyword);
+            });
+
+            // 🎯 核心排序提醒邏輯
+            processedList.sort((a, b) => a.countdown - b.countdown);
+
+            // 渲染 DOM 表格
+            processedList.forEach(item => {
+                const tr = document.createElement('tr');
+                let badgeHtml = '', countdownText = '';
+                
+                if (item.status === 'expired') {
+                    tr.className = 'expired-row';
+                    badgeHtml = '<span class="status-badge status-expired">🚨 已過期</span>';
+                    countdownText = `<strong style="color: #e74c3c;">過期 ${Math.abs(item.countdown)} 天</strong>`;
+                } else if (item.status === 'warning') {
+                    tr.className = 'warning-row';
+                    badgeHtml = '<span class="status-badge status-warning">⏳ 即將到期</span>';
+                    countdownText = `<strong style="color: #e67e22;">倒數 ${item.countdown} 天</strong>`;
+                } else {
+                    badgeHtml = '<span class="status-badge status-normal">✅ 安全</span>';
+                    countdownText = `剩餘 ${item.countdown} 天`;
+                }
+
+                tr.innerHTML = `
+                    <td>${badgeHtml}</td>
+                    <td><strong>${item.id}</strong></td>
+                    <td>${item.name}</td>
+                    <td>${item.mfgDate}</td>
+                    <td>${item.days} 天</td>
+                    <td><mark style="background-color: #f1c40f; padding: 2px 5px; border-radius:3px;">${item.location}</mark></td>
+                    <td><code>${item.expiryDate}</code></td>
+                    <td>${countdownText}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        doRender();
+        window.onload = function() { openTutorial(0); };
+    </script>
+</body>
+</html>

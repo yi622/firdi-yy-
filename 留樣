@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留樣管理系統 - 瀏覽器資料庫版</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 25px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+        }
+        .date-info {
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #7f8c8d;
+            background: #e9ecef;
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 4px;
+        }
+        .panel {
+            background: #fff;
+            padding: 20px;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #34495e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .flex-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 0.85em;
+            color: #7f8c8d;
+            font-weight: bold;
+        }
+        input, select {
+            padding: 8px 10px;
+            border: 1px solid #ccd1d9;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+        .short-input {
+            width: 90px;
+        }
+        button {
+            padding: 8px 18px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.danger {
+            background-color: #e74c3c;
+        }
+        button.danger:hover {
+            background-color: #c0392b;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        th, td {
+            border: 1px solid #e6e9ed;
+            padding: 12px;
+            text-align: left;
+            font-size: 0.95em;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9fbfd;
+        }
+        .expired-row {
+            color: #c0392b !important;
+            background-color: #fde8e8 !important;
+            font-weight: bold;
+        }
+        .warning-text {
+            color: #e67e22;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>留樣管理系統 (瀏覽器本地資料庫版)</h2>
+    <div class="date-info" id="todayBox">今日日期：載入中...</div>
+
+    <!-- 1. 新增表單 -->
+    <div class="panel">
+        <div class="panel-title">➕ 新增留樣項目 (留樣期限由系統自動精算)</div>
+        <form id="sampleForm" class="flex-group" onsubmit="event.preventDefault(); handleAdd();">
+            <div class="field">
+                <label>產品類別</label>
+                <input type="text" id="pCategory" placeholder="例: 食品類" required>
+            </div>
+            <div class="field">
+                <label>產品名稱</label>
+                <input type="text" id="pName" placeholder="例: 鳳梨酥" required>
+            </div>
+            <div class="field">
+                <label>留樣人員</label>
+                <input type="text" id="pHandler" placeholder="例: 王小明" required>
+            </div>
+            <div class="field">
+                <label>生產日期</label>
+                <input type="date" id="pManufacture" required>
+            </div>
+            <div class="field">
+                <label>保存期限</label>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <input type="number" id="pDuration" min="1" placeholder="數字" class="short-input" required>
+                    <select id="pUnit">
+                        <option value="days">天</option>
+                        <option value="months">個月</option>
+                        <option value="years">年</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit">計算並儲存</button>
+        </form>
+    </div>
+
+    <!-- 2. 篩選與搜尋 -->
+    <div class="panel">
+        <div class="panel-title">
+            <span>🔍 篩選與搜尋</span>
+            <button class="danger" onclick="clearDatabase()">⚠️ 清空/重設資料庫</button>
+        </div>
+        <div class="flex-group">
+            <div class="field">
+                <label>實時關鍵字搜尋</label>
+                <input type="text" id="keyword" placeholder="搜尋編號、產品、人員..." oninput="doRender()">
+            </div>
+            <div class="field">
+                <label>到期狀態過濾</label>
+                <select id="statusFilter" onchange="doRender()">
+                    <option value="all">顯示全部項目</option>
+                    <option value="expired">🚨 只顯示已到期/過期</option>
+                    <option value="normal">✅ 只顯示未到期</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 資料表格 -->
+    <table>
+        <thead>
+            <tr>
+                <th>留樣編號</th>
+                <th>產品類別</th>
+                <th>產品名稱</th>
+                <th>留樣人員</th>
+                <th>生產日期</th>
+                <th>保存期限</th>
+                <th>留樣期限</th>
+                <th>保存倒數天數</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        // ⚡ 核心變更：從 LocalStorage 讀取資料庫，若無資料則初始化預設測試資料 [1]
+        const STORAGE_KEY = 'sample_management_db';
+        let db = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [
+            { id: "115052001", category: "食品類", name: "草莓果醬", handler: "張小明", mfgDate: "2025-05-20", duration: "12", unit: "months", expiryDate: "2026-05-20" },
+            { id: "115060301", category: "美妝類", name: "保濕乳液", handler: "李四", mfgDate: "2024-06-03", duration: "2", unit: "years", expiryDate: "2026-06-03" },
+            { id: "115060401", category: "藥品類", name: "維他命C片", handler: "王五", mfgDate: "2026-05-04", duration: "1", unit: "months", expiryDate: "2026-06-04" },
+            { id: "115071501", category: "食品類", name: "高山烏龍茶", handler: "張小明", mfgDate: "2026-05-15", duration: "60", unit: "days", expiryDate: "2026-07-14" }
+        ];
+
+        // 儲存資料到 LocalStorage 的函數 [1]
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        }
+
+        // 獲取精確今日西元日期 (YYYY-MM-DD)
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        document.getElementById('todayBox').innerText = `今日日期 (西元)：${todayStr}`;
+
+        // 依據生產日期與天/月/年，計算出留樣期限 (西元 YYYY-MM-DD)
+        function calculateExpiry(mfgDateStr, duration, unit) {
+            let date = new Date(mfgDateStr);
+            const val = parseInt(duration, 10);
+
+            if (unit === 'days') {
+                date.setDate(date.getDate() + val);
+            } else if (unit === 'months') {
+                date.setMonth(date.getMonth() + val);
+            } else if (unit === 'years') {
+                date.setFullYear(date.getFullYear() + val);
+            }
+
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 自動配發不重複的民國年月日流水編號
+        function generateAutoId(dateStr) {
+            const dateObj = new Date(dateStr);
+            const twYear = dateObj.getFullYear() - 1911;
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const idPrefix = `${twYear}${month}${day}`;
+
+            const sameDayItems = db.filter(item => item.id.startsWith(idPrefix));
+            let maxSerial = 0;
+            sameDayItems.forEach(item => {
+                const serial = parseInt(item.id.substring(idPrefix.length), 10);
+                if (serial > maxSerial) maxSerial = serial;
+            });
+
+            return `${idPrefix}${String(maxSerial + 1).padStart(2, '0')}`;
+        }
+
+        // 實時動態渲染與核心比對
+        function doRender() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            const word = document.getElementById('keyword').value.trim().toLowerCase();
+            const filter = document.getElementById('statusFilter').value;
+            const todayTime = new Date(todayStr).getTime();
+
+            db.forEach((item, index) => {
+                const expiryTime = new Date(item.expiryDate).getTime();
+                const diffTime = expiryTime - todayTime;
+                const countdownDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const isExpired = countdownDays <= 0;
+
+                if (filter === 'expired' && !isExpired) return;
+                if (filter === 'normal' && isExpired) return;
+
+                const match = item.id.includes(word) || item.category.toLowerCase().includes(word) ||
+                              item.name.toLowerCase().includes(word) || item.handler.toLowerCase().includes(word);
+                if (!match) return;
+
+                const tr = document.createElement('tr');
+                if (isExpired) tr.className = 'expired-row';
+
+                const unitMap = { 'days': '天', 'months': '個月', 'years': '年' };
+                const durationText = `${item.duration} ${unitMap[item.unit]}`;
+

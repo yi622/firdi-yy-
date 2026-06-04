@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>產品風味評分數據庫系統</title>
+    <style>
+        :root { --primary: #4f46e5; --warning: #ef4444; --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1300px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+        .card { background: var(--card); padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { margin-top: 0; margin-bottom: 15px; font-size: 1.25rem; border-bottom: 2px solid var(--bg); padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.95rem; }
+        input[type="text"], select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
+        .range-group { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex: 1; accent-color: var(--primary); }
+        .range-value { font-weight: bold; min-width: 25px; color: var(--primary); font-size: 1.1rem; }
+        button { background: var(--primary); color: white; padding: 11px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; width: 100%; font-weight: bold; }
+        button:hover { background: #4338ca; }
+        
+        /* Excel 上傳區 */
+        .excel-upload-zone { border: 2px dashed #4f46e5; background: #f5f3ff; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; cursor: pointer; }
+        
+        /* 🔥 自訂類別標籤樣式 */
+        .cat-manager-box { display: flex; gap: 8px; margin-bottom: 12px; }
+        .cat-tags-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+        .cat-tag { background: #e0e7ff; color: #4f46e5; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; font-weight: 500; }
+        .cat-tag .btn-del { color: #9ab0ff; cursor: pointer; font-weight: bold; }
+        .cat-tag .btn-del:hover { color: var(--warning); }
+
+        .filter-box { margin-top: 25px; margin-bottom: 10px; }
+        .history-list { max-height: 220px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+        .history-item { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.9rem; }
+        .history-item:hover { background: #f9fafb; }
+        
+        .low-score-alert { background-color: #fee2e2 !important; border-left: 4px solid var(--warning); }
+        .low-score-badge { background: var(--warning); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        
+        .chart-box { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 420px; position: sticky; top: 20px; }
+        #radarSvg { width: 100%; max-width: 400px; height: auto; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 左側控制面板 -->
+    <div>
+        <!-- 🔥 新增：自由類別管理專區 -->
+        <div class="card">
+            <h2>⚙️ 自訂產品類別庫</h2>
+            <div class="cat-manager-box">
+                <input type="text" id="newCatInput" placeholder="輸入想新增的類別名稱（如：氣泡水、隱藏配方）">
+                <button type="button" style="width: auto; white-space: nowrap; padding: 0 15px;" onclick="addNewCategory()">新增類別</button>
+            </div>
+            <div class="cat-tags-container" id="catTagsContainer">
+                <!-- 這裡由 JavaScript 動態載入數據庫類別 -->
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📥 批次導入 Excel 數據</h2>
+            <div class="excel-upload-zone" id="dropZone" onclick="document.getElementById('excelFileInput').click()">
+                <span style="font-size: 1.3rem;">📄</span>
+                <p style="margin: 3px 0; font-size: 0.85rem; font-weight: bold; color: #4f46e5;">點擊此處或拖曳 Excel 檔案至此上傳</p>
+                <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;" onchange="handleExcelUpload(this.files)">
+            </div>
+
+            <h2>📊 手動錄入風味評分</h2>
+            <form id="flavorForm">
+                <div class="form-group">
+                    <label>產品類別</label>
+                    <select id="productCategory" required>
+                        <!-- 動態渲染類別庫 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>產品名稱</label>
+                    <input type="text" id="productName" required placeholder="例如：曼特寧咖啡">
+                </div>
+                <div class="form-group">
+                    <label>配方版本</label>
+                    <input type="text" id="version" required placeholder="例如：配方 A">
+                </div>
+                <div class="form-group"><label>甜度 (0-5)</label><div class="range-group"><input type="range" id="sweetness" min="0" max="5" step="0.5" value="3"><span class="range-value" id="sweetnessVal">3</span></div></div>
+                <div class="form-group"><label>酸度 (0-5)</label><div class="range-group"><input type="range" id="sourness" min="0" max="5" step="0.5" value="3"><span class="range-value" id="sournessVal">3</span></div></div>
+                <div class="form-group"><label>香氣 (0-5)</label><div class="range-group"><input type="range" id="aroma" min="0" max="5" step="0.5" value="3"><span class="range-value" id="aromaVal">3</span></div></div>
+                <div class="form-group"><label>口感 (0-5)</label><div class="range-group"><input type="range" id="texture" min="0" max="5" step="0.5" value="3"><span class="range-value" id="textureVal">3</span></div></div>
+                <button type="submit">單筆寫入數據庫</button>
+            </form>
+
+            <div class="filter-box">
+                <label style="color: var(--primary);">📂 分類篩選數據庫：</label>
+                <select id="categoryFilter" onchange="loadHistoryFromDB()">
+                    <!-- 動態渲染篩選器 -->
+                </select>
+            </div>
+            <div class="history-list" id="historyList"></div>
+        </div>
+    </div>
+
+    <!-- 右側雷達圖 -->
+    <div class="card chart-box">
+        <h2 id="chartTitle" style="width: 100%; text-align: center;">數據庫已連線</h2>
+        <div id="scoreBadgeContainer" style="margin-bottom: 10px;"></div>
+        <svg id="radarSvg" viewBox="0 0 400 400"></svg>
+    </div>
+</div>
+
+<script>
+    const fields = ['sweetness', 'sourness', 'aroma', 'texture'];
+
+    // --- 1. 🔥 數據庫互動：異步讀取並渲染動態類別選單與管理標籤 ---
+    async function loadCategories() {
+        const res = await fetch('/api/categories');
+        const cats = await res.json();
+        
+        // 更新錄入表單的類別下拉選單
+        const formSelect = document.getElementById('productCategory');
+        formSelect.innerHTML = cats.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+        // 更新篩選器的下拉選單 (保留「顯示全部數據庫記錄」)
+        const filterSelect = document.getElementById('categoryFilter');
+        const currentFilterVal = filterSelect.value || 'ALL'; // 紀錄當前被選取的篩選值
+        filterSelect.innerHTML = `<option value="ALL">顯示全部數據庫記錄</option>` + 
+                                 cats.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        filterSelect.value = currentFilterVal;
+
+        // 更新類別庫管理專區的圓角標籤頁面
+        const container = document.getElementById('catTagsContainer');
+        container.innerHTML = cats.map(c => `
+            <div class="cat-tag">
+                ${c.name}
+                <span class="btn-del" onclick="deleteCategory('${c.name}')">×</span>
+            </div>
+        `).join('');
+    }
+
+    // 新增自訂類別
+    async function addNewCategory() {
+        const input = document.getElementById('newCatInput');
+        const name = input.value.trim();
+        if(!name) return;
+
+        const res = await fetch('/api/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        const result = await res.json();
+        if(res.ok) {
+            input.value = '';
+            await loadCategories();
+        } else {
+            alert(result.error);
+        }
+    }
+
+    // 刪除既有類別
+    async function deleteCategory(name) {
+        if(!confirm(`確定要刪除「${name}」類別嗎？(這不會刪除已存在數據庫中的產品評分)`)) return;
+        const res = await fetch(`/api/categories/${name}`, { method: 'DELETE' });
+        if(res.ok) {
+            await loadCategories();
+            await loadHistoryFromDB();
+        }
+    }
+
+    // --- 2. 從後端數據庫讀取評分數據 ---
+    async function loadHistoryFromDB() {
+        const filter = document.getElementById('categoryFilter').value || 'ALL';
+        const res = await fetch(`/api/scores?category=${filter}`);
+        const dbData = await res.json();
+        const list = document.getElementById('historyList');
+        list.innerHTML = '';
+        
+        if(dbData.length === 0) {
+            list.innerHTML = '<div style="color:#9ca3af; padding:15px; text-align:center;">此分類暫無數據庫記錄</div>';
+            return;
+        }
+
+        dbData.forEach((item, index) => {
+            const totalScore = item.scores.reduce((a, b) => a + b, 0);
+            const isLowScore = totalScore < 12;
+
+            const div = document.createElement('div');
+            div.className = `history-item ${isLowScore ? 'low-score-alert' : ''}`;
+            div.innerHTML = `
+                <div>
+                    <span style="font-size:0.75rem; background:#e5e7eb; padding:2px 6px; border-radius:4px; margin-right:5px;">${item.category}</span>

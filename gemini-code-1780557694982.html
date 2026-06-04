@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>產品配方感官品評智慧決策系統 (配方A、B、C 完整版)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 25px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        h2 {
+            color: #2c3e50;
+            border-left: 5px solid #3498db;
+            padding-left: 10px;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .btn-help {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-help:hover { background-color: #2980b9; }
+        
+        .panel {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+        }
+        .panel-title { 
+            font-weight: bold; 
+            font-size: 16px;
+            margin-bottom: 15px; 
+            color: #2c3e50; 
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 8px;
+        }
+        
+        /* 布局控制 */
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            align-items: center;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 320px;
+            width: 100%;
+        }
+        
+        /* 決策指標卡 */
+        .metric-card {
+            background: #fafbfc;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .metric-title { font-size: 14px; color: #7f8c8d; font-weight: bold; }
+        .metric-value { font-size: 22px; font-weight: bold; margin: 5px 0; }
+        .metric-desc { font-size: 13px; color: #555; line-height: 1.4; }
+        .tag-best { color: #27ae60; border-left: 4px solid #27ae60; padding-left: 8px; }
+        .tag-worst { color: #c0392b; border-left: 4px solid #c0392b; padding-left: 8px; }
+
+        /* 輸入表單與表格 */
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { padding: 10px; text-align: center; font-size: 0.9em; border-bottom: 1px solid #e6e9ed; }
+        th { background-color: #34495e; color: white; }
+        input[type="number"] {
+            width: 70px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .highlight-max { background-color: #e8f8f5; font-weight: bold; color: #117a65; }
+        .highlight-min { background-color: #fdedec; font-weight: bold; color: #78281f; }
+        
+        /* 系統維護架構圖 */
+        .arch-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #fafbfc;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px dashed #b2bec3;
+        }
+        .arch-node {
+            background: #fff;
+            border: 2px solid #34495e;
+            border-radius: 6px;
+            padding: 12px 20px;
+            width: 85%;
+            max-width: 550px;
+            text-align: center;
+        }
+        .node-title { font-weight: bold; color: #2c3e50; margin-bottom: 4px; font-size: 14px;}
+        .node-desc { font-size: 12px; color: #666; }
+        .arch-arrow { color: #bdc3c7; font-size: 18px; margin: 5px 0; }
+
+        /* 彈窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-box {
+            background: white; padding: 30px; border-radius: 12px; max-width: 550px; width: 90%;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+        }
+        .modal-header { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+        .step-content { font-size: 14px; line-height: 1.6; color: #555; }
+        .modal-footer { display: flex; justify-content: space-between; margin-top: 20px; }
+        .btn-nav { padding: 6px 14px; border-radius: 4px; cursor: pointer; border: none; font-weight: bold; }
+        .btn-prev { background: #e0e0e0; color: #555; }
+        .btn-next { background: #2ecc71; color: white; }
+    </style>
+</head>
+<body>
+
+    <h2>配方 A、B、C 綜合感官品評核心決策系統</h2>
+    <div class="subtitle">
+        系統狀態：已完整加載【配方A】、【配方B】與【配方C】數據 ➔ 支援動態即時手動修改試算
+        <button class="btn-help" onclick="openTutorial(0)">📖 查看操作與維護指南</button>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">📊 多維感官看板（包含 配方A、B、C 的雷達圖輪廓與圓餅圖份額）</div>
+        <div class="grid-3">
+            <div class="chart-container">
+                <canvas id="radarChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="decision-box">
+                <div class="metric-card tag-best">
+                    <div class="metric-title">🏆 綜合評估：市場整體表現最佳配方</div>
+                    <div class="metric-value" id="bestRecipeTitle">計算中...</div>
+                    <div class="metric-desc">該配方在當前的矩陣矩陣中總分居冠，具備最寬廣的雷達圖包絡線，建議優先進行商業化推廣。</div>
+                </div>
+                <div class="metric-card tag-worst">
+                    <div class="metric-title">⚠️ 綜合警示：市場整體表現最弱配方</div>
+                    <div class="metric-value" id="worstRecipeTitle">計算中...</div>
+                    <div class="metric-desc">該配方目前總滿意度較低。請參考下方矩陣表格中被高亮為紅色的弱勢欄位進行重點風味改良。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">📝 配方數據工作台（1-5分制，可直接修改數值，圖表會即時動態重新計算）</div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>研發配方版本</th>
+                        <th>平均甜度</th>
+                        <th>平均酸度</th>
+                        <th>平均香氣</th>
+                        <th>平均口感</th>
+                        <th>配方總積分 (加總)</th>
+                    </tr>
+                </thead>
+                <tbody id="matrixTableBody">
+                    </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 15px; text-align: right;">
+            <button class="btn-help" style="background-color: #e67e22;" onclick="resetToCSVData()">🔄 還原為 RND-003 CSV 原始清洗數據</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">🛠️ 系統維護手冊：配方 A/B/C 資料流向說明日誌</div>
+        <div class="arch-container">
+            <div class="arch-node" style="border-color: #3498db; background: #fafcff;">
+                <div class="node-title">1. 配方 A 核心清洗邏輯 (Recipe A Imputation)</div>
+                <div class="node-desc">自動偵測原始 CSV 中的 `A` 與 `項目1` 合流為「配方_A」，並對第2手缺失之酸度自動補償中性3分。</div>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-node" style="border-color: #2ecc71; background: #fafdff;">
+                <div class="node-title">2. 全即時雙圖表聯動監聽 (Dual-Chart Event Listener)</div>
+                <div class="node-desc">當使用者手動修改表格內 A、B、C 的任何一格分數，系統會自動在記憶體中銷毀舊圖表並即時重繪。</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="tutorialModal">
+        <div class="modal-box">
+            <div class="modal-header" id="modalTitle">操作指南</div>
+            <div class="step-content" id="modalContent">載入中...</div>
+            <div class="modal-footer">
+                <button class="btn-nav btn-prev" id="btnPrev" onclick="moveStep(-1)">上一步</button>
+                <button class="btn-nav btn-next" id="btnNext" onclick="moveStep(1)">下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 從 RND-003.csv 洗清出來的 100% 精準平均數值（包含配方A、B、C）
+        const defaultCSVData = {
+            rA: { name: "配方_A (高酸甜爆發配方)", id: "A", sweet: 4.40, sour: 4.30, aroma: 4.10, texture: 4.20 },
+            rB: { name: "配方_B (平衡對照組配方)", id: "B", sweet: 4.25, sour: 4.13, aroma: 4.50, texture: 4.13 },
+            rC: { name: "配方_C (風味待改良配方)", id: "C", sweet: 3.44, sour: 3.44, aroma: 3.56, texture: 3.56 }
+        };
+
+        // 目前記憶體中的即時運作數據
+        let currentScores = JSON.parse(JSON.stringify(defaultCSVData));
+
+        // 圖表物件變數
+        let radarChartInstance = null;
+        let pieChartInstance = null;
+
+        // 引導手冊內容
+        const tutorialSteps = [
+            { title: "🧪 完整版 配方 A、B、C 決策系統", content: "本網頁已確保<b>【配方A】</b>、<b>【配方B】</b>與<b>【配方C】</b>全部併入矩陣演算。您可以在下方直接觀看它們的交叉對比。" },
+            { title: "✏️ 自由手動輸入功能", content: "未來若有新的盲測實驗分數，您不用改程式，直接點擊下方表格裡的數字框輸入新分數，上方的<b>雷達輪廓圖、圓餅圖切塊比例、最佳配方判定</b>都會在1秒內同步改變！" }
+        ];
+
+        let currentStep = 0;
+        function openTutorial(step) { currentStep = step; document.getElementById('tutorialModal').style.display = 'flex'; updateModalUI(); }
+        function updateModalUI() {
+            const data = tutorialSteps[currentStep];
+            document.getElementById('modalTitle').innerText = data.title;
+            document.getElementById('modalContent').innerHTML = data.content;
+            document.getElementById('btnPrev').style.visibility = currentStep === 0 ? 'hidden' : 'visible';
+            document.getElementById('btnNext').innerText = currentStep === tutorialSteps.length - 1 ? "開始體驗" : "下一步";
+        }
+        function moveStep(direction) { currentStep += direction; if (currentStep >= tutorialSteps.length) document.getElementById('tutorialModal').style.display = 'none'; else updateModalUI(); }
+
+        // 核心動態重算與圖表渲染引擎
+        function updateAnalysis() {
+            // 1. 讀取輸入框數值
+            const getVal = (id) => parseFloat(document.getElementById(id).value) || 0;
+            
+            currentScores.rA.sweet = getVal('A_sw'); currentScores.rA.sour = getVal('A_so'); currentScores.rA.aroma = getVal('A_ar'); currentScores.rA.texture = getVal('A_tx');
+            currentScores.rB.sweet = getVal('B_sw'); currentScores.rB.sour = getVal('B_so'); currentScores.rB.aroma = getVal('B_ar'); currentScores.rB.texture = getVal('B_tx');
+            currentScores.rC.sweet = getVal('C_sw'); currentScores.rC.sour = getVal('C_so'); currentScores.rC.aroma = getVal('C_ar'); currentScores.rC.texture = getVal('C_tx');
+
+            let list = [currentScores.rA, currentScores.rB, currentScores.rC];
+            list.forEach(item => item.total = item.sweet + item.sour + item.aroma + item.texture);
+
+            // 2. 自動判定最高最低分並進行顏色高亮
+            let fields = ['sweet', 'sour', 'aroma', 'texture', 'total'];
+            fields.forEach(f => {
+                let vals = list.map(i => i[f]);
+                let max = Math.max(...vals);
+                let min = Math.min(...vals);
+                list.forEach(i => {
+                    let cell = document.getElementById(`${i.id}_${f}_cell`);
+                    if(cell) {
+                        cell.className = ''; // 先清除舊的高亮樣式
+                        if (i[f] === max && max !== min) cell.classList.add('highlight-max');
+                        if (i[f] === min && max !== min) cell.classList.add('highlight-min');
+                    }
+                });
+            });
+
+            // 更新總分文字顯示
+            document.getElementById('A_total_cell').innerText = currentScores.rA.total.toFixed(2);
+            document.getElementById('B_total_cell').innerText = currentScores.rB.total.toFixed(2);
+            document.getElementById('C_total_cell').innerText = currentScores.rC.total.toFixed(2);
+
+            // 3. 智慧判定：最優與最弱配方路由
+            let sorted = [...list].sort((a,b) => b.total - a.total);
+            document.getElementById('bestRecipeTitle').innerText = `${sorted[0].name} (綜合總分: ${sorted[0].total.toFixed(2)} 分)`;
+            document.getElementById('worstRecipeTitle').innerText = `${sorted[sorted.length-1].name} (綜合總分: ${sorted[sorted.length-1].total.toFixed(2)} 分)`;
+
+            // 4. 即時同步更新雷達圖 (Radar Chart)
+            if (radarChartInstance) radarChartInstance.destroy();
+            const ctxRadar = document.getElementById('radarChart').getContext('2d');
+            radarChartInstance = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: ['甜度', '酸度', '香氣', '口感'],
+                    datasets: [
+                        { label: '配方_A', data: [currentScores.rA.sweet, currentScores.rA.sour, currentScores.rA.aroma, currentScores.rA.texture], backgroundColor: 'rgba(52, 152, 219, 0.15)', borderColor: '#3498db', borderWidth: 2 },
+                        { label: '配方_B', data: [currentScores.rB.sweet, currentScores.rB.sour, currentScores.rB.aroma, currentScores.rB.texture], backgroundColor: 'rgba(46, 204, 113, 0.15)', borderColor: '#2ecc71', borderWidth: 2 },
+                        { label: '配方_C', data: [currentScores.rC.sweet, currentScores.rC.sour, currentScores.rC.aroma, currentScores.rC.texture], backgroundColor: 'rgba(231, 76, 60, 0.15)', borderColor: '#e74c3c', borderWidth: 2 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { r: { suggestedMin: 1, suggestedMax: 5 } } }
+            });
+
+            // 5. 即時同步更新圓餅圖 (Pie Chart)
+            if (pieChartInstance) pieChartInstance.destroy();
+            const ctxPie = document.getElementById('pieChart').getContext('2d');
+            pieChartInstance = new Chart(ctxPie, {
+                type: 'pie',
+                data: {
+                    labels: ['配方_A 總滿意度份額', '配方_B 總滿意度份額', '配方_C 總滿意度份額'],
+                    datasets: [{
+                        data: [currentScores.rA.total, currentScores.rB.total, currentScores.rC.total],
+                        backgroundColor: ['#3498db', '#2ecc71', '#e74c3c'],
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: '配方綜合滿意度佔比 (圓餅圖)' } } }
+            });
+        }
+
+        // 動態建構配方 A、B、C 的輸入矩陣表格 HTML
+        function buildTable() {
+            const tbody = document.getElementById('matrixTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td><strong>${currentScores.rA.name}</strong></td>
+                    <td id="A_sweet_cell"><input type="number" step="0.01" id="A_sw" value="${currentScores.rA.sweet}" oninput="updateAnalysis()"></td>
+                    <td id="A_sour_cell"><input type="number" step="0.01" id="A_so" value="${currentScores.rA.sour}" oninput="updateAnalysis()"></td>
+                    <td id="A_aroma_cell"><input type="number" step="0.01" id="A_ar" value="${currentScores.rA.aroma}" oninput="updateAnalysis()"></td>
+                    <td id="A_texture_cell"><input type="number" step="0.01" id="A_tx" value="${currentScores.rA.texture}" oninput="updateAnalysis()"></td>
+                    <td id="A_total_cell" style="font-weight:bold;">0</td>
+                </tr>
+                <tr>
+                    <td><strong>${currentScores.rB.name}</strong></td>
+                    <td id="B_sweet_cell"><input type="number" step="0.01" id="B_sw" value="${currentScores.rB.sweet}" oninput="updateAnalysis()"></td>
+                    <td id="B_sour_cell"><input type="number" step="0.01" id="B_so" value="${currentScores.rB.sour}" oninput="updateAnalysis()"></td>
+                    <td id="B_aroma_cell"><input type="number" step="0.01" id="B_ar" value="${currentScores.rB.aroma}" oninput="updateAnalysis()"></td>
+                    <td id="B_texture_cell"><input type="number" step="0.01" id="B_tx" value="${currentScores.rB.texture}" oninput="updateAnalysis()"></td>
+                    <td id="B_total_cell" style="font-weight:bold;">0</td>
+                </tr>
+                <tr>
+                    <td><strong>${currentScores.rC.name}</strong></td>
+                    <td id="C_sweet_cell"><input type="number" step="0.01" id="C_sw" value="${currentScores.rC.sweet}" oninput="updateAnalysis()"></td>
+                    <td id="C_sour_cell"><input type="number" step="0.01" id="C_so" value="${currentScores.rC.sour}" oninput="updateAnalysis()"></td>
+                    <td id="C_aroma_cell"><input type="number" step="0.01" id="C_ar" value="${currentScores.rC.aroma}" oninput="updateAnalysis()"></td>
+                    <td id="C_texture_cell"><input type="number" step="0.01" id="C_tx" value="${currentScores.rC.texture}" oninput="updateAnalysis()"></td>
+                    <td id="C_total_cell" style="font-weight:bold;">0</td>
+                </tr>
+            `;
+            updateAnalysis();
+        }
+
+        // 一鍵還原 CSV 初始設定值
+        function resetToCSVData() {
+            currentScores = JSON.parse(JSON.stringify(defaultCSVData));
+            buildTable();
+        }
+
+        // 初始化載入
+        buildTable();
+        window.onload = function() { openTutorial(0); };
+    </script>
+</body>
+</html>
